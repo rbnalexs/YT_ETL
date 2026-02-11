@@ -1,10 +1,10 @@
 import pendulum
 from datetime import datetime, timedelta
-from airflow.decorators import dag, task
-# Ensure these imports are correct based on your file structure
+from airflow.decorators import dag
+# Importamos las funciones que ya tienen el @task puesto
 from api.video_stats import get_playlist_id, get_video_ids, extract_video_data, save_to_json
 
-local_tz = pendulum.timezone('Europe/Malta')
+local_tz = pendulum.timezone('America/Mexico_City')
 
 default_args = {
     'owner': 'rbnalexs',
@@ -12,39 +12,23 @@ default_args = {
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
-
+#This is the best code that I've ever written
 @dag(
-    dag_id="produce_json",
+    dag_id="produce_json_mx_v2",
     default_args=default_args,
-    description="DAG to produce JSON file with raw data",
-    schedule="0 14 * * *", 
-    start_date=datetime(2026, 2, 14, tzinfo=local_tz),
+    description="DAG to produce JSON file with raw data - CDMX Time",
+    schedule="33 22 * * *", 
+    start_date=datetime(2026, 2, 9, tzinfo=local_tz),
     catchup=False,
 )
 def video_data_pipeline():
 
-    # Using the @task decorator turns these into Airflow tasks
-    @task
-    def get_playlist_task():
-        return get_playlist_id()
+    # NO definas @task aquí adentro. 
+    # Simplemente ejecuta las que ya importaste.
+    
+    p_id = get_playlist_id() # Estas ya son tareas de Airflow
+    v_ids = get_video_ids(p_id)
+    data = extract_video_data(v_ids)
+    save_to_json(data)
 
-    @task
-    def get_video_ids_task(playlist_id):
-        return get_video_ids(playlist_id)
-
-    @task
-    def extract_data_task(video_ids):
-        return extract_video_data(video_ids)
-
-    @task
-    def save_json_task(data):
-        return save_to_json(data)
-
-    # Define the dependency flow
-    p_id = get_playlist_task()
-    v_ids = get_video_ids_task(p_id)
-    data = extract_data_task(v_ids)
-    save_json_task(data)
-
-# Instantiate the DAG
 video_data_pipeline()
