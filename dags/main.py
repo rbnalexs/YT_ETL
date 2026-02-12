@@ -1,34 +1,80 @@
+from airflow import DAG
 import pendulum
 from datetime import datetime, timedelta
-from airflow.decorators import dag
-# Importamos las funciones que ya tienen el @task puesto
-from api.video_stats import get_playlist_id, get_video_ids, extract_video_data, save_to_json
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
-local_tz = pendulum.timezone('America/Mexico_City')
-
-default_args = {
-    'owner': 'rbnalexs',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-}
-#This is the best code that I've ever written
-@dag(
-    dag_id="produce_json_mx_v2",
-    default_args=default_args,
-    description="DAG to produce JSON file with raw data - CDMX Time",
-    schedule="33 22 * * *", 
-    start_date=datetime(2026, 2, 9, tzinfo=local_tz),
-    catchup=False,
+from api.video_stats import (
+    get_playlist_id,
+    get_video_ids,
+    extract_video_data,
+    save_to_json,
 )
-def video_data_pipeline():
 
-    # NO definas @task aquí adentro. 
-    # Simplemente ejecuta las que ya importaste.
-    
-    p_id = get_playlist_id() # Estas ya son tareas de Airflow
-    v_ids = get_video_ids(p_id)
-    data = extract_video_data(v_ids)
-    save_to_json(data)
+from datawarehouse.dwh import staging_table, core_table
 
-video_data_pipeline()
+
+# Define the local timezone
+local_tz = pendulum.timezone("Europe/Malta")
+
+# Default Args
+default_args = {
+    "owner": "rbnalexs",
+    "depends_on_past": False,
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "email": "data@engineers.com",
+    # 'retries': 1,
+    # 'retry_delay': timedelta(minutes=5),
+    "max_active_runs": 1,
+    "dagrun_timeout": timedelta(hours=1),
+    "start_date": datetime(2025, 1, 1, tzinfo=local_tz),
+    # 'end_date': datetime(2030, 12, 31, tzinfo=local_tz),
+}
+
+# Variables
+staging_schema = "staging"
+core_schema = "core"
+
+# DAG 1: produce_json
+with DAG(
+    dag_id="produce_json",
+    default_args=default_args,
+    description="DAG to produce JSON file with raw data",
+    schedule="0 14 * * *",
+    catchup=False,
+) as dag_produce:
+
+    # Define tasks
+    playlist_id = get_playlist_id()
+    video_ids = get_video_ids(playlist_id)
+    extract_data = extract_video_data(video_ids)
+    save_to_json_task = save_to_json(extract_data)
+
+    trigger_update_db = TriggerDagRunOperator(
+        task_id="trigger_update_db",
+        trigger_dag_id="update_db",
+    )
+
+    # Define dependencies
+    playlist_id >> video_ids >> extract_data >> save_to_json_task >> trigger_update_db
+
+# DAG 2: update_db
+with DAG(
+    dag_id="update_db",
+    default_args=default_args,
+    description="DAG to process JSON file and insert data into both staging and core schemas",
+    catchup=False,
+    schedule=None,
+) as dag_update:
+
+    # Define tasks
+    update_staging = staging_table()
+    update_core = core_table()
+
+
+    # Define dependencies
+    update_staging >> update_core 
+
+
+
+    # Define dependencies

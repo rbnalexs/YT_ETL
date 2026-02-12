@@ -1,7 +1,8 @@
-from airflow.providers.postgress.hooks.postgres import PostgresHook
-from airflow.providers.postgress.operators.postgres import PostgresOperator
-from pyscopg2.extras import RealDictCursor
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 
+# Corrección: psycopg2 en lugar de pyscopg2
+from psycopg2.extras import RealDictCursor
 table = "yt_api"
 
 
