@@ -30,6 +30,7 @@ def create_schema(schema):
 
     close_conn_cursor(conn, cur)
 
+#Create
 
 def create_table(schema):
 
