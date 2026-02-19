@@ -4,9 +4,5 @@ data_source pg_datasource:
   password: ${ELT_DATABASE_PASSWORD}
   host: ${POSTGRES_CONN_HOST}
   port: ${POSTGRES_CONN_PORT}
-  database: postgres
+  database: ${ELT_DATABASE_NAME}
   schema: ${SCHEMA}
-  sslmode: prefer
-
-
- 
